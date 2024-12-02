@@ -1,6 +1,6 @@
-use std::path::PathBuf;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 
 pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
     let input = input_opt.unwrap_or(PathBuf::from("input/day1.txt"));
@@ -19,21 +19,27 @@ pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
         1 => {
             println!("Running Day 1, Part 1");
             part1(&input)
-        },
+        }
         2 => {
             println!("Running Day 2, Part 2");
             part2(&input)
-        },
-        _ => panic!("Invalid Part :(")
+        }
+        _ => panic!("Invalid Part :("),
     }
 }
 
 fn part1(input_file: &PathBuf) {
-    let input_file = File::open(input_file).expect(format!("Could not open input file: {}", input_file.to_string_lossy()).as_str());
+    let input_file = File::open(input_file).expect(
+        format!(
+            "Could not open input file: {}",
+            input_file.to_string_lossy()
+        )
+        .as_str(),
+    );
     let lines = BufReader::new(input_file).lines();
 
-    let mut list1: Vec<i32>  = Vec::new();
-    let mut list2: Vec<i32>  = Vec::new();
+    let mut list1: Vec<i32> = Vec::new();
+    let mut list2: Vec<i32> = Vec::new();
 
     for line in lines {
         let line = line.expect("Could not read line");
@@ -47,9 +53,13 @@ fn part1(input_file: &PathBuf) {
     println!("list1: {:?}", list1);
     println!("list2: {:?}", list2);
 
-    let diffs:Vec<i32> = list1.into_iter().zip(list2.into_iter()).map(|x| {(x.0 - x.1).abs()}).collect();
+    let diffs: Vec<i32> = list1
+        .into_iter()
+        .zip(list2.into_iter())
+        .map(|x| (x.0 - x.1).abs())
+        .collect();
     println!("diffs: {:?}", diffs);
-    let sum:i32 = diffs.iter().sum();
+    let sum: i32 = diffs.iter().sum();
     println!("Sum: {}", sum);
 }
 
