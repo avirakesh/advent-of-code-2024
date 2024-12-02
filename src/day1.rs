@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -64,5 +65,36 @@ fn part1(input_file: &PathBuf) {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Day 1 Part 2");
+    let input_file = File::open(input_file).expect(
+        format!(
+            "Could not open input file: {}",
+            input_file.to_string_lossy()
+        )
+        .as_str(),
+    );
+    let lines = BufReader::new(input_file).lines();
+
+    let mut list1: Vec<u32> = Vec::new();
+    let mut freq_map: HashMap<u32, u32> = HashMap::new();
+
+    for line in lines {
+        let line = line.expect("Could not read line");
+        let parts: Vec<&str> = line.split_ascii_whitespace().collect();
+        list1.push(parts[0].parse::<u32>().unwrap());
+
+        let val2 = parts[1].parse::<u32>().unwrap();
+        let count = freq_map.entry(val2).or_insert(0);
+        (*count) += 1;
+    }
+
+    println!("{:?}", &list1);
+    println!("{:#?}", &freq_map);
+
+    let mut sum: u32 = 0;
+    for val in list1 {
+        let freq = freq_map.get(&val).unwrap_or(&0);
+        sum += val * freq;
+    }
+
+    println!("Sum: {}", sum);
 }
