@@ -1,4 +1,5 @@
 use clap::Parser;
+mod day1;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -6,13 +7,19 @@ struct Args {
     #[arg(short, long)]
     day: u32,
 
+    #[arg(short, long)]
+    part: Option<u32>,
+
     // Overriden Input
     #[arg(short, long)]
-    input_file: std::path::PathBuf,
+    input_file: Option<std::path::PathBuf>,
 }
 
 fn main() {
     let args = Args::parse();
-    dbg!(args);
-    println!("Hello, world!");
+
+    match args.day {
+        1 => day1::main(args.part, args.input_file),
+        _ => panic!("Invalid Day :(")
+    }
 }
