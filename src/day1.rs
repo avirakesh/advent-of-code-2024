@@ -10,7 +10,7 @@ pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
         println!("Running Day 1, Part 1");
         part1(&input);
         println!();
-        println!("Running Day 2, Part 2");
+        println!("Running Day 1, Part 2");
         part2(&input);
         return;
     }
