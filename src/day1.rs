@@ -22,7 +22,7 @@ pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
             part1(&input)
         }
         2 => {
-            println!("Running Day 2, Part 2");
+            println!("Running Day 1, Part 2");
             part2(&input)
         }
         _ => panic!("Invalid Part :("),

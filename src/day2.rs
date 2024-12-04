@@ -17,7 +17,7 @@ pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
     let part = part_opt.unwrap();
     match part {
         1 => {
-            println!("Running Day 1, Part 1");
+            println!("Running Day 2, Part 1");
             part1(&input)
         }
         2 => {
