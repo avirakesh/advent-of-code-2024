@@ -57,9 +57,7 @@ fn part1(input_file: &PathBuf) {
             })
             .collect();
         println!("Matches found: {:?}", matches);
-        for factors in matches {
-            sum += factors.0 * factors.1;
-        }
+        sum += matches.iter().map(|f| f.0 * f.1).sum::<i32>();
     }
 
     println!("Sum: {}", sum);
@@ -90,13 +88,12 @@ fn part2(input_file: &PathBuf) {
 
         for m in matches {
             let matc = m.get(0).unwrap().as_str();
-            println!("Matched: {:?}", matc);
-            if m.get(0).unwrap().as_str() == do_str {
+            if matc == do_str {
                 is_enabled = true;
                 continue;
             }
 
-            if m.get(0).unwrap().as_str() == dont_str {
+            if matc == dont_str {
                 is_enabled = false;
                 continue;
             }
@@ -110,10 +107,7 @@ fn part2(input_file: &PathBuf) {
         }
 
         println!("{:?}", factor_list);
-
-        for factors in factor_list {
-            sum += factors.0 * factors.1;
-        }
+        sum += factor_list.iter().map(|f| f.0 * f.1).sum::<i32>();
     }
 
     println!("Sum: {}", sum);
