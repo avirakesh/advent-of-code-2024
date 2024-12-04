@@ -66,5 +66,55 @@ fn part1(input_file: &PathBuf) {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement part2")
+    let input_file = File::open(input_file).expect(
+        format!(
+            "Could not open input file: {}",
+            input_file.to_string_lossy()
+        )
+        .as_str(),
+    );
+    let lines = BufReader::new(input_file).lines();
+
+    let re = Regex::new(r"mul\((\d+),(\d+)\)|do\(\)|don\'t\(\)").unwrap();
+    let do_str = "do()";
+    let dont_str = "don't()";
+
+    let mut sum = 0;
+    let mut is_enabled = true;
+    for line_res in lines {
+        let line = line_res.expect("Could not read line");
+        println!("{:?}", line);
+        let matches = re.captures_iter(line.as_str());
+
+        let mut factor_list: Vec<(i32, i32)> = Vec::new();
+
+        for m in matches {
+            let matc = m.get(0).unwrap().as_str();
+            println!("Matched: {:?}", matc);
+            if m.get(0).unwrap().as_str() == do_str {
+                is_enabled = true;
+                continue;
+            }
+
+            if m.get(0).unwrap().as_str() == dont_str {
+                is_enabled = false;
+                continue;
+            }
+
+            if is_enabled {
+                factor_list.push((
+                    m.get(1).unwrap().as_str().parse::<i32>().unwrap(),
+                    m.get(2).unwrap().as_str().parse::<i32>().unwrap(),
+                ));
+            }
+        }
+
+        println!("{:?}", factor_list);
+
+        for factors in factor_list {
+            sum += factors.0 * factors.1;
+        }
+    }
+
+    println!("Sum: {}", sum);
 }
