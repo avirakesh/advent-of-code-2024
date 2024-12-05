@@ -2,6 +2,7 @@ use std::{
     fs::File,
     io::{BufRead, BufReader},
     path::PathBuf,
+    vec,
 };
 
 static POSSIBLE_DIRS: [(i32, i32); 8] = [
@@ -88,14 +89,7 @@ fn create_board(input_file: &PathBuf) -> Vec<Vec<char>> {
 }
 
 fn create_empty_board(board: &Vec<Vec<char>>) -> Vec<Vec<char>> {
-    let mut empty_board: Vec<Vec<char>> = Vec::new();
-    for _ in 0..board.len() {
-        let mut row: Vec<char> = Vec::new();
-        for _ in 0..board[0].len() {
-            row.push('.');
-        }
-        empty_board.push(row);
-    }
+    let empty_board: Vec<Vec<char>> = vec![vec!['.'; board[0].len()]; board.len()];
     return empty_board;
 }
 
