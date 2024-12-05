@@ -16,6 +16,7 @@ static POSSIBLE_DIRS: [(i32, i32); 8] = [
 ];
 
 static XMAS: [char; 4] = ['X', 'M', 'A', 'S'];
+static MAS: [char; 3] = ['M', 'A', 'S'];
 
 pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
     let input = input_opt.unwrap_or(PathBuf::from("input/day4.txt"));
@@ -157,5 +158,79 @@ fn pretty_print_board(board: &Vec<Vec<char>>) {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part2");
+    let board = create_board(input_file);
+    let mut empty_board = create_empty_board(&board);
+
+    pretty_print_board(&board);
+    println!();
+
+    let board_size = (board[0].len(), board.len());
+    let mut x_mas_count = 0;
+
+    for x in 0..board_size.0 {
+        for y in 0..board_size.1 {
+            if board[y][x] == 'A' {
+                if is_x_mas(&board, (x, y)) {
+                    fill_x_mas_in_empty_board(&mut empty_board, &board, (x, y));
+                    x_mas_count += 1;
+                }
+            }
+        }
+    }
+
+    pretty_print_board(&empty_board);
+    println!("X-MAS count: {}", x_mas_count);
+}
+
+fn is_x_mas(board: &Vec<Vec<char>>, middle: (usize, usize)) -> bool {
+    let (x, y) = (middle.0 as i32, middle.1 as i32);
+    if board[y as usize][x as usize] != 'A' {
+        return false;
+    }
+
+    let is_left_diagonal_mas = is_mas_in_dir(board, (x - 1, y - 1), (1, 1))
+        || is_mas_in_dir(board, (x + 1, y + 1), (-1, -1));
+
+    let is_right_diagonal_mas = is_mas_in_dir(board, (x + 1, y - 1), (-1, 1))
+        || is_mas_in_dir(board, (x - 1, y + 1), (1, -1));
+
+    return is_left_diagonal_mas && is_right_diagonal_mas;
+}
+
+fn is_mas_in_dir(board: &Vec<Vec<char>>, start: (i32, i32), dir: (i32, i32)) -> bool {
+    let mut x = start.0;
+    let mut y = start.1;
+    for c in MAS {
+        if x < 0 || x >= board[0].len() as i32 || y < 0 || y >= board.len() as i32 {
+            return false;
+        }
+        if board[y as usize][x as usize] != c {
+            return false;
+        }
+        x += dir.0;
+        y += dir.1;
+    }
+    return true;
+}
+
+fn fill_x_mas_in_empty_board(
+    empty_board: &mut Vec<Vec<char>>,
+    board: &Vec<Vec<char>>,
+    middle: (usize, usize),
+) {
+    let (mut x, mut y) = (middle.0 - 1, middle.1 - 1);
+    let dir = (1, 1);
+    for _ in MAS {
+        empty_board[y][x] = board[y][x];
+        x += dir.0;
+        y += dir.1;
+    }
+
+    let (mut x, mut y) = ((middle.0 + 1) as i32, (middle.1 - 1) as i32);
+    let dir = (-1 as i32, 1 as i32);
+    for _ in MAS {
+        empty_board[y as usize][x as usize] = board[y as usize][x as usize];
+        x += dir.0;
+        y += dir.1;
+    }
 }
