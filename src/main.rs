@@ -2,6 +2,7 @@ use clap::Parser;
 mod day1;
 mod day2;
 mod day3;
+mod day4;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -24,6 +25,7 @@ fn main() {
         1 => day1::main(args.part, args.input_file),
         2 => day2::main(args.part, args.input_file),
         3 => day3::main(args.part, args.input_file),
+        4 => day4::main(args.part, args.input_file),
         _ => panic!("Invalid Day :("),
     }
 }
