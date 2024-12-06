@@ -3,6 +3,7 @@ mod day1;
 mod day2;
 mod day3;
 mod day4;
+mod day5;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -26,6 +27,7 @@ fn main() {
         2 => day2::main(args.part, args.input_file),
         3 => day3::main(args.part, args.input_file),
         4 => day4::main(args.part, args.input_file),
+        5 => day5::main(args.part, args.input_file),
         _ => panic!("Invalid Day :("),
     }
 }
