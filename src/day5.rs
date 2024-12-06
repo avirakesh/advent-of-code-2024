@@ -46,7 +46,7 @@ fn part1(input_file: &PathBuf) {
         }
     }
 
-    println!("Sum: {}", sum);
+    println!("Sum: {:?}", sum);
 }
 
 fn get_rules_and_book(input_file: &PathBuf) -> (Vec<(i32, i32)>, Vec<Vec<i32>>) {
@@ -99,7 +99,8 @@ fn get_rules_and_book(input_file: &PathBuf) -> (Vec<(i32, i32)>, Vec<Vec<i32>>) 
 }
 
 fn generate_reverse_rules_index(rules: Vec<(i32, i32)>) -> HashMap<i32, HashSet<i32>> {
-    // Reverse rules means that for any key, the value is the set of pages that should NOT come after it.
+    // Reverse rules means that for any key, the value is the set of pages that should NOT
+    // come after it.
     let mut reverse_rules = HashMap::new();
     for (i, j) in rules {
         let entry = reverse_rules.entry(j).or_insert(HashSet::new());
@@ -125,5 +126,44 @@ fn are_pages_valid(pages: &Vec<i32>, reverse_rules: &HashMap<i32, HashSet<i32>>)
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part2");
+    let (rules, book) = get_rules_and_book(input_file);
+    println!();
+    let reverse_rules = generate_reverse_rules_index(rules);
+    println!("Reverse Rules: {:?}", reverse_rules);
+    println!();
+
+    let mut sum = 0;
+    for mut pages in book {
+        if are_pages_valid(&pages, &reverse_rules) {
+            continue;
+        }
+
+        fix_invalid_pages(&mut pages, &reverse_rules);
+        println!("Fixed Pages: {:?}", pages);
+        sum += pages[pages.len() / 2]
+    }
+    println!("Sum: {:?}", sum)
+}
+
+fn fix_invalid_pages(pages: &mut Vec<i32>, reverse_rules: &HashMap<i32, HashSet<i32>>) {
+    for start_idx in 0..pages.len() {
+        let mut curr_idx: usize = start_idx + 1;
+        while curr_idx < pages.len() {
+            let p1 = pages[start_idx];
+            let p2 = pages[curr_idx];
+
+            if reverse_rules.contains_key(&p1) && reverse_rules[&p1].contains(&p2) {
+                // Swap the offending entries fixing this particular sequence.
+                pages[start_idx] = p2;
+                pages[curr_idx] = p1;
+
+                // reset curr_idx to start_idx + 1 and continue checking for invalid sequences.
+                curr_idx = start_idx + 1;
+                continue;
+            }
+
+            // No rules violated, move on to the next page.
+            curr_idx += 1;
+        }
+    }
 }
