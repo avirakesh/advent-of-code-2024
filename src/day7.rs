@@ -68,6 +68,11 @@ impl Problem {
     }
 
     fn get_possible_solution_operators(&self, check_concat: bool) -> Vec<Vec<Operator>> {
+        // There is an assumption that the values never get smaller
+        // after an operation. Given that we're working with +, *, and ||, the
+        // only situation this assumption might fail is with 'some number * 0'.
+        // All other operations will always result in larger (or equal) number.
+        // Manually verified that 0 is never an operand in the input :P
         let mut working_operands: VecDeque<(u64, Vec<Operator>)> = VecDeque::new();
         working_operands.push_back((self.operands[0], Vec::new()));
 
