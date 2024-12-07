@@ -33,6 +33,7 @@ pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
 enum Operator {
     Plus,
     Mutiply,
+    Concat,
 }
 
 impl Display for Operator {
@@ -40,6 +41,7 @@ impl Display for Operator {
         match *self {
             Operator::Plus => write!(f, "+"),
             Operator::Mutiply => write!(f, "*"),
+            Operator::Concat => write!(f, "||"),
         }
     }
 }
@@ -65,7 +67,7 @@ impl Problem {
         return Self { target, operands };
     }
 
-    fn get_possible_solution_operators(&self) -> Vec<Vec<Operator>> {
+    fn get_possible_solution_operators(&self, check_concat: bool) -> Vec<Vec<Operator>> {
         let mut working_operands: VecDeque<(u64, Vec<Operator>)> = VecDeque::new();
         working_operands.push_back((self.operands[0], Vec::new()));
 
@@ -94,6 +96,17 @@ impl Problem {
                     next_operators.push(Operator::Mutiply);
                     working_operands.push_back((next_operand, next_operators));
                 }
+
+                if check_concat {
+                    // Check if || is a valid option
+                    let next_operand = format!("{}{}", current_value, operand);
+                    let next_operand = next_operand.parse::<u64>().unwrap();
+                    if next_operand <= self.target {
+                        let mut next_operators = current_operands.clone();
+                        next_operators.push(Operator::Concat);
+                        working_operands.push_back((next_operand, next_operators));
+                    }
+                }
             }
         }
 
@@ -110,13 +123,10 @@ impl Problem {
         }
 
         print!("    {} = ", self.target);
-        for _ in self.operands.iter() {
-            print!("(")
-        }
         for (operand, operator) in self.operands.iter().zip(operators.iter()) {
-            print!("{}) {} ", operand, operator);
+            print!("{} {} ", operand, operator);
         }
-        println!("{})", self.operands.last().unwrap());
+        println!("{}", self.operands.last().unwrap());
     }
 }
 
@@ -127,7 +137,7 @@ fn part1(input_file: &PathBuf) {
     let mut solved_problems_sum = 0;
     println!("Solved Problems:");
     for problem in problems.iter() {
-        let solutions = problem.get_possible_solution_operators();
+        let solutions = problem.get_possible_solution_operators(/* check_concat: */ false);
 
         for solution in solutions.iter() {
             problem.pretty_print_solution(solution);
@@ -163,5 +173,24 @@ fn get_problems_from_file(input_file: &PathBuf) -> Vec<Problem> {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement part2");
+    let problems = get_problems_from_file(input_file);
+
+    let mut num_solved_problems = 0;
+    let mut solved_problems_sum = 0;
+    println!("Solved Problems:");
+    for problem in problems.iter() {
+        let solutions = problem.get_possible_solution_operators(/* check_concat: */ true);
+
+        for solution in solutions.iter() {
+            problem.pretty_print_solution(solution);
+        }
+        if solutions.len() > 0 {
+            num_solved_problems += 1;
+            solved_problems_sum += problem.target;
+            println!();
+        }
+    }
+
+    println!("Number of solved problems: {}", num_solved_problems);
+    println!("Sum of solved problems: {}", solved_problems_sum);
 }
