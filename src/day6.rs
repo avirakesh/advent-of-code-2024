@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fs::File,
     io::{BufRead, BufReader},
     path::PathBuf,
@@ -32,18 +33,26 @@ pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum Cell {
-    UNVISITED,
-    VISITED,
-    GUARD,
-    OBSTACLE,
+    Unvisited,
+    Visited,
+    Guard,
+    Obstacle,
+    AddedObstacle, // Used for pretty printing only, not for logic. Use Obstacle for logic instead.
+}
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+enum Completion {
+    OutOfBounds,
+    Loop,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 struct State {
     board: Vec<Vec<Cell>>,
-    board_size: (usize, usize), // (width, height)
-    guard_pos: (i32, i32),      // (x, y): (0, 0) is top left corner of board
-    guard_facing: (i32, i32),   // (dx, dy)
+    board_size: (usize, usize),                       // (width, height)
+    guard_pos: (i32, i32),                            // (x, y): (0, 0) is top left corner of board
+    guard_facing: (i32, i32),                         // (dx, dy)
+    guard_pos_history: HashSet<(i32, i32)>,           // (pos_x, pos_y)
+    guard_history: HashSet<((i32, i32), (i32, i32))>, // ((pos_x, pos_y), (facing_x, facing_y))
 }
 
 impl State {
@@ -66,11 +75,11 @@ impl State {
             let mut row: Vec<Cell> = Vec::new();
             for c in line.chars() {
                 match c {
-                    '.' => row.push(Cell::UNVISITED),
-                    '#' => row.push(Cell::OBSTACLE),
+                    '.' => row.push(Cell::Unvisited),
+                    '#' => row.push(Cell::Obstacle),
                     '^' => {
                         guard_pos = (row.len() as i32, board.len() as i32);
-                        row.push(Cell::GUARD);
+                        row.push(Cell::Guard);
                     }
                     _ => panic!("Invalid character in input file"),
                 }
@@ -79,35 +88,82 @@ impl State {
         }
 
         let board_size = (board[0].len(), board.len());
+        let guard_pos_history: HashSet<(i32, i32)> = HashSet::new();
+        let guard_history: HashSet<((i32, i32), (i32, i32))> = HashSet::new();
+
+        // Initialize the board with the guard's starting position and facing direction
         return Self {
             board,
             board_size,
             guard_pos,
             guard_facing,
+            guard_pos_history,
+            guard_history,
         };
     }
 
     fn next_state(&mut self) {
-        let mut curr_pos = self.guard_pos;
+        let curr_pos = self.guard_pos;
         let (dx, dy) = self.guard_facing;
-        let mut next_pos = (curr_pos.0 + dx, curr_pos.1 + dy);
+        let next_pos = (curr_pos.0 + dx, curr_pos.1 + dy);
 
-        if self._is_within_bounds(&next_pos) && self.get_cell_at_pos(&next_pos) == Cell::OBSTACLE {
+        if !self._is_within_bounds(&next_pos) {
+            return;
+        }
+
+        // Log history as the next steps will either change the position or the
+        // facing of the guard.
+        self.log_history();
+
+        if self.get_cell_at_pos(&next_pos) == Cell::Obstacle {
             self.turn_right();
             return;
         }
 
-        // No obstable in front. Move guard until either an obstable is encountered, or
-        // we reach the edge of the board.
-        while self._is_within_bounds(&next_pos) && self.get_cell_at_pos(&next_pos) != Cell::OBSTACLE
-        {
-            self.set_cell_at_pos(&curr_pos, Cell::VISITED);
-            curr_pos = next_pos;
-            next_pos = (curr_pos.0 + dx, curr_pos.1 + dy);
+        // No obstable in front. Move guard by one position
+        self.set_cell_at_pos(&curr_pos, Cell::Visited);
+        self.set_cell_at_pos(&next_pos, Cell::Guard);
+        self.guard_pos = next_pos;
+    }
+
+    fn get_board_completion_state(&mut self) -> Completion {
+        while self.has_next_state() {
+            if self.is_guard_looping() {
+                return Completion::Loop;
+            }
+            self.next_state();
+        }
+        return Completion::OutOfBounds;
+    }
+
+    fn get_obstacles_to_force_loop(&mut self) -> Vec<(i32, i32)> {
+        // Validate that self always ends in out of bounds
+        if self.clone().get_board_completion_state() != Completion::OutOfBounds {
+            panic!("Initial problem already loops :(");
         }
 
-        self.set_cell_at_pos(&curr_pos, Cell::GUARD);
-        self.guard_pos = curr_pos;
+        let mut obstacles: Vec<(i32, i32)> = Vec::new();
+        while self.has_next_state() {
+            let curr_pos = self.guard_pos;
+            let (dx, dy) = self.guard_facing;
+            let next_pos = (curr_pos.0 + dx, curr_pos.1 + dy);
+
+            // If there is no obstacle in front and the guard has not been at this position before,
+            // try putting an obstacle there to see if what happens to the board
+            if self.get_cell_at_pos(&next_pos) != Cell::Obstacle
+                && !self.was_guard_at_pos(&next_pos)
+            {
+                let mut test_board = self.clone();
+                test_board.set_cell_at_pos(&next_pos, Cell::Obstacle);
+                if test_board.get_board_completion_state() == Completion::Loop {
+                    obstacles.push(next_pos);
+                }
+            }
+
+            self.next_state();
+        }
+
+        return obstacles;
     }
 
     fn turn_right(&mut self) {
@@ -130,12 +186,27 @@ impl State {
         return self._is_within_bounds(&next_pos);
     }
 
+    fn is_guard_looping(&self) -> bool {
+        let history_entry = (self.guard_pos, self.guard_facing);
+        return self.guard_history.contains(&history_entry);
+    }
+
+    fn was_guard_at_pos(&self, pos: &(i32, i32)) -> bool {
+        return self.guard_pos_history.contains(pos);
+    }
+
     fn get_cell_at_pos(&self, pos: &(i32, i32)) -> Cell {
         return self.board[pos.1 as usize][pos.0 as usize];
     }
 
     fn set_cell_at_pos(&mut self, pos: &(i32, i32), new_cell: Cell) {
         self.board[pos.1 as usize][pos.0 as usize] = new_cell;
+    }
+
+    fn log_history(&mut self) {
+        self.guard_pos_history.insert(self.guard_pos);
+        self.guard_history
+            .insert((self.guard_pos, self.guard_facing));
     }
 
     fn _is_within_bounds(&self, pos: &(i32, i32)) -> bool {
@@ -149,16 +220,17 @@ impl State {
         for row in self.board.iter() {
             for cell_state in row.iter() {
                 match cell_state {
-                    Cell::UNVISITED => print!("."),
-                    Cell::VISITED => print!("*"),
-                    Cell::GUARD => match self.guard_facing {
+                    Cell::Unvisited => print!("."),
+                    Cell::Visited => print!("*"),
+                    Cell::Guard => match self.guard_facing {
                         (0, -1) => print!("↑"),
                         (0, 1) => print!("↓"),
                         (-1, 0) => print!("←"),
                         (1, 0) => print!("→"),
                         _ => panic!("Invalid guard facing direction"),
                     },
-                    Cell::OBSTACLE => print!("#"),
+                    Cell::Obstacle => print!("#"),
+                    Cell::AddedObstacle => print!("O"),
                 }
             }
             println!();
@@ -171,7 +243,7 @@ impl State {
             .board
             .iter()
             .flatten()
-            .filter(|c| **c == Cell::VISITED || **c == Cell::GUARD)
+            .filter(|c| **c == Cell::Visited || **c == Cell::Guard)
             .count();
     }
 }
@@ -189,5 +261,17 @@ fn part1(input_file: &PathBuf) {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part2");
+    let vanilla_board = State::from_file(input_file);
+
+    let mut working_board = vanilla_board.clone();
+    let obstacles = working_board.get_obstacles_to_force_loop();
+
+    for obstacle in obstacles.iter() {
+        let mut print_board = vanilla_board.clone();
+        print_board.set_cell_at_pos(obstacle, Cell::AddedObstacle);
+        println!("Obstacle at {:?}", obstacle);
+        print_board.pretty_print_board();
+    }
+
+    println!("Possible obstacles for loop: {}", obstacles.len());
 }
