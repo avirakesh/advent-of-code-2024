@@ -146,24 +146,28 @@ impl State {
         };
     }
 
-    fn get_antinodes_for_all_antennas(&self) -> HashSet<(i32, i32)> {
+    fn get_all_single_harmonic_antinodes(&self) -> HashSet<(i32, i32)> {
         let mut antinodes: Vec<HashSet<(i32, i32)>> = Vec::new();
         for (_, positions) in self.antennas.iter() {
             if positions.len() < 2 {
                 continue;
             }
 
-            let frequency_antinodes = self.get_antinode_for_one_frequency(positions);
+            let frequency_antinodes =
+                self.get_single_harmonic_antinodes_for_one_frequency(positions);
             antinodes.push(frequency_antinodes);
         }
         return antinodes
             .into_iter()
             .flatten()
-            .filter(|p| p.0 >= 0 && p.0 < self.board_size.0 && p.1 >= 0 && p.1 < self.board_size.1)
+            .filter(|p| self.is_pos_within_board(p))
             .collect();
     }
 
-    fn get_antinode_for_one_frequency(&self, positions: &Vec<(i32, i32)>) -> HashSet<(i32, i32)> {
+    fn get_single_harmonic_antinodes_for_one_frequency(
+        &self,
+        positions: &Vec<(i32, i32)>,
+    ) -> HashSet<(i32, i32)> {
         let mut antinode_positions: HashSet<(i32, i32)> = HashSet::new();
 
         for i in 0..positions.len() - 1 {
@@ -194,6 +198,64 @@ impl State {
                 // Antinodes outside antennas
                 antinode_positions.insert(distance.point_at_distance(&p2));
                 antinode_positions.insert((distance * -1).point_at_distance(&p1));
+            }
+        }
+
+        return antinode_positions;
+    }
+
+    fn get_all_mutli_harmonic_antinodes(&self) -> HashSet<(i32, i32)> {
+        let mut antinodes: Vec<HashSet<(i32, i32)>> = Vec::new();
+        for (_, positions) in self.antennas.iter() {
+            if positions.len() < 2 {
+                continue;
+            }
+
+            let frequency_antinodes =
+                self.get_multi_harmonic_antinodes_for_one_frequency(positions);
+            antinodes.push(frequency_antinodes);
+        }
+        return antinodes
+            .into_iter()
+            .flatten()
+            .filter(|p| self.is_pos_within_board(p))
+            .collect();
+    }
+
+    fn get_multi_harmonic_antinodes_for_one_frequency(
+        &self,
+        positions: &Vec<(i32, i32)>,
+    ) -> HashSet<(i32, i32)> {
+        let mut antinode_positions: HashSet<(i32, i32)> = HashSet::new();
+
+        for i in 0..positions.len() - 1 {
+            let p1 = positions[i];
+            for j in i + 1..positions.len() {
+                let p2 = positions[j];
+                let antennas_in_line = self.get_all_antennas_in_line(p1, p2, positions);
+                if antennas_in_line.len() > 2 {
+                    println!(
+                        "{}",
+                        format!("Found more than 2 antennas in line: {:?}", antennas_in_line)
+                            .as_str()
+                            .red()
+                    );
+                    continue;
+                }
+
+                let distance = Distance::between_points(&p1, &p2);
+                let mut curr_pos = p2;
+                while self.is_pos_within_board(&curr_pos) {
+                    antinode_positions.insert(curr_pos);
+                    curr_pos = distance.point_at_distance(&curr_pos);
+                }
+
+                let distance = Distance::between_points(&p2, &p1);
+                let mut curr_pos = p1;
+                while self.is_pos_within_board(&curr_pos) {
+                    antinode_positions.insert(curr_pos);
+                    curr_pos = distance.point_at_distance(&curr_pos);
+                }
             }
         }
 
@@ -231,6 +293,10 @@ impl State {
         return ret;
     }
 
+    fn is_pos_within_board(&self, pos: &(i32, i32)) -> bool {
+        return pos.0 >= 0 && pos.0 < self.board_size.0 && pos.1 >= 0 && pos.1 < self.board_size.1;
+    }
+
     fn visualize_antinodes(&self, antinodes: &HashSet<(i32, i32)>) {
         let mut board = vec![vec!['.'; self.board_size.0 as usize]; self.board_size.1 as usize];
         for (frequency, pos) in self.antennas.iter() {
@@ -262,16 +328,24 @@ impl State {
 
 fn part1(input_file: &PathBuf) {
     let state = State::from_file(input_file);
-    let antinodes = state.get_antinodes_for_all_antennas();
+    let antinodes = state.get_all_single_harmonic_antinodes();
     println!("{:?}", state);
 
     state.visualize_antinodes(&antinodes);
     println!(
         "Number of antinodes: {}",
-        format!("{}", antinodes.len()).as_str().green()
+        format!("{}", antinodes.len()).as_str().green().bold()
     );
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement day8 part2");
+    let state = State::from_file(input_file);
+    let antinodes = state.get_all_mutli_harmonic_antinodes();
+    println!("{:?}", state);
+
+    state.visualize_antinodes(&antinodes);
+    println!(
+        "Number of antinodes: {}",
+        format!("{}", antinodes.len()).as_str().green().bold()
+    );
 }
