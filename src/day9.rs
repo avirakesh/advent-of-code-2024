@@ -143,6 +143,7 @@ fn calculate_checksum(defragged_diskmap: &Vec<(i32, i32)>) -> i64 {
 
     for (size, id) in defragged_diskmap {
         if *id == -1 {
+            num_blocks += *size as i64;
             continue;
         }
 
@@ -168,5 +169,148 @@ fn last_full_block_before_idx(idx: i32, diskmap: &Vec<(i32, i32)>) -> Option<usi
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part2");
+    let input_file = File::open(input_file).expect(
+        format!(
+            "Could not open input file: {}",
+            input_file.to_string_lossy()
+        )
+        .as_str(),
+    );
+
+    let lines = BufReader::new(input_file).lines();
+    let mut diskmap: Option<Vec<i32>> = None;
+    for line in lines {
+        let line = line.expect("Could not read line");
+        diskmap = Some(
+            line.chars()
+                .into_iter()
+                .map(|c| c.to_digit(10).unwrap() as i32)
+                .collect(),
+        );
+        break;
+    }
+
+    let diskmap: Vec<i32> = diskmap.unwrap();
+    println!("Diskmap: {:?}", diskmap);
+
+    // Each entry is now "(size, id, has_moved)", where id for empty blocks is 0
+    let diskmap: Vec<(i32, i32, bool)> = diskmap
+        .into_iter()
+        .enumerate()
+        .filter(|(_, v)| *v != 0)
+        .map(|(idx, v)| {
+            if idx % 2 == 0 {
+                (v, idx as i32 / 2)
+            } else {
+                (v, -1)
+            }
+        })
+        .map(|(size, id)| (size, id, false))
+        .collect();
+
+    println!("[(size, id)]: {:?}", diskmap);
+
+    let mut defragged_diskmap: Vec<(i32, i32, bool)> = diskmap.clone();
+
+    let mut idx = (defragged_diskmap.len() - 1) as i32;
+    while idx >= 0 {
+        if defragged_diskmap[idx as usize].1 == -1 {
+            idx -= 1;
+            continue;
+        }
+
+        let (fill_size, fill_id, moved) = defragged_diskmap[idx as usize];
+        if moved {
+            idx -= 1;
+            continue;
+        }
+
+        let empty_idx = first_empty_idx(&defragged_diskmap, fill_size, idx as usize);
+        if empty_idx.is_none() {
+            idx -= 1;
+            continue;
+        }
+        let empty_idx = empty_idx.unwrap();
+        let empty_size = defragged_diskmap[empty_idx].0;
+
+        defragged_diskmap[empty_idx] = (fill_size, fill_id, true);
+
+        if empty_size > fill_size {
+            let remaining_size = empty_size - fill_size;
+            defragged_diskmap.insert(empty_idx + 1, (remaining_size, -1, false));
+            idx += 1;
+        }
+
+        let block_removed = insert_empty_block(&mut defragged_diskmap, fill_size, idx as usize);
+        idx -= if block_removed { 1 } else { 0 };
+
+        idx -= 1;
+    }
+
+    println!("Defragged: {:?}", defragged_diskmap);
+    let defragged_diskmap: Vec<(i32, i32)> =
+        defragged_diskmap.iter().map(|(s, i, _)| (*s, *i)).collect();
+    println!(
+        "Checksum: {}",
+        format!("{}", calculate_checksum(&defragged_diskmap))
+            .as_str()
+            .green()
+            .bold()
+    );
+}
+
+fn first_empty_idx(
+    diskmap: &Vec<(i32, i32, bool)>,
+    min_size: i32,
+    max_idx: usize,
+) -> Option<usize> {
+    return diskmap
+        .iter()
+        .enumerate()
+        .filter(|(idx, (size, id, _))| *id == -1 && *size >= min_size && *idx <= max_idx)
+        .map(|(idx, _)| idx)
+        .next();
+}
+
+fn insert_empty_block(diskmap: &mut Vec<(i32, i32, bool)>, size: i32, idx: usize) -> bool {
+    // Returns true if a block was removed to the left of idx.
+    if idx == 0 && diskmap[idx + 1].1 == -1 {
+        let removed_size = diskmap[idx + 1].0;
+        diskmap[idx] = (size + removed_size, -1, false);
+        let _ = diskmap.remove(idx + 1);
+        return false;
+    }
+
+    if idx == diskmap.len() - 1 && diskmap[idx - 1].1 == -1 {
+        let removed_size = diskmap[idx - 1].0;
+        diskmap[idx - 1] = (size + removed_size, -1, false);
+        let _ = diskmap.remove(idx).0;
+        return true;
+    }
+
+    if idx > 0 && diskmap[idx - 1].1 == -1 && idx < diskmap.len() - 1 && diskmap[idx + 1].1 == -1 {
+        let (removed_1, _, _) = diskmap[idx - 1];
+        let (removed_2, _, _) = diskmap[idx + 1];
+        diskmap[idx] = (size + removed_1 + removed_2, -1, false);
+        let _ = diskmap.remove(idx + 1);
+        let _ = diskmap.remove(idx - 1).0;
+        return true;
+    }
+
+    if idx > 0 && diskmap[idx - 1].1 == -1 {
+        let (removed_size, _, _) = diskmap[idx - 1];
+        diskmap[idx] = (size + removed_size, -1, false);
+        let _ = diskmap.remove(idx - 1).0;
+        return true;
+    }
+
+    if idx < diskmap.len() - 1 && diskmap[idx + 1].1 == -1 {
+        let (removed_size, _, _) = diskmap[idx + 1];
+        diskmap[idx] = (size + removed_size, -1, false);
+        let _ = diskmap.remove(idx + 1).0;
+        return false;
+    }
+
+    diskmap[idx] = (size, -1, false);
+    return false;
 }
