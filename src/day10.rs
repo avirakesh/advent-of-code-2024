@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::File,
     io::{BufRead, BufReader},
     ops::{Index, IndexMut},
@@ -106,21 +106,18 @@ impl State {
         return State { board, trail_score };
     }
 
-    fn update_all_trail_scores(&mut self) {
-        let (width, height) = (self.board[0].len(), self.board.len());
+    fn update_all_trail_scores_part1(&mut self) {
         let nines = self.get_all_9_positions();
-        println!("{:?}", nines);
 
         for pos in nines {
-            self.update_trail_scores_for_nine(pos);
+            self.update_part1_trail_scores_for_nine(pos);
         }
     }
 
-    fn update_trail_scores_for_nine(&mut self, pos: Point) {
+    fn update_part1_trail_scores_for_nine(&mut self, pos: Point) {
         let mut visited: HashSet<Point> = HashSet::new();
 
         let mut active_nodes: Vec<Point> = vec![pos];
-        println!("{:?}", active_nodes);
 
         while !active_nodes.is_empty() {
             let node = active_nodes.pop().unwrap();
@@ -194,6 +191,35 @@ impl State {
             .map(|(x, y)| self.trail_score[y][x])
             .sum();
     }
+
+    fn update_all_trail_scores_part2(&mut self) {
+        let nines = self.get_all_9_positions();
+        for pos in nines.iter() {
+            self.trail_score[*pos] += 1;
+        }
+
+        let mut active_nodes: HashMap<Point, u32> = HashMap::new();
+        for pos in nines.iter() {
+            active_nodes.insert(*pos, 1);
+        }
+
+        while !active_nodes.is_empty() {
+            let mut next_active_nodes: HashMap<Point, u32> = HashMap::new();
+            for (pos, score) in active_nodes.iter() {
+                let curr_level = self.board[*pos];
+                self.trail_score[*pos] = *score;
+                let neighbors = self.get_neighbor_pos(*pos);
+                for n in neighbors {
+                    let neighbor_level = self.board[n];
+                    if neighbor_level + 1 != curr_level {
+                        continue;
+                    }
+                    *next_active_nodes.entry(n).or_insert(0) += score;
+                }
+            }
+            active_nodes = next_active_nodes;
+        }
+    }
 }
 
 impl std::fmt::Display for State {
@@ -202,9 +228,9 @@ impl std::fmt::Display for State {
         for (y, row) in self.board.iter().enumerate() {
             for (x, val) in row.iter().enumerate() {
                 match self.board[y][x] {
-                    0 => write!(f, "{}", format!("{}", val).as_str().green())?,
-                    9 => write!(f, "{}", format!("{}", val).as_str().red())?,
-                    _ => write!(f, "{}", val)?,
+                    0 => write!(f, "{:<3}", format!("{}", val).as_str().green())?,
+                    9 => write!(f, "{:<3}", format!("{}", val).as_str().red())?,
+                    _ => write!(f, "{:<3}", val)?,
                 }
             }
             writeln!(f)?;
@@ -215,9 +241,9 @@ impl std::fmt::Display for State {
         for (y, row) in self.trail_score.iter().enumerate() {
             for (x, val) in row.iter().enumerate() {
                 match self.board[y][x] {
-                    0 => write!(f, "{}", format!("{}", val).as_str().green())?,
-                    9 => write!(f, "{}", format!("{}", val).as_str().red())?,
-                    _ => write!(f, "{}", val)?,
+                    0 => write!(f, "{:<3}", format!("{}", val).as_str().green())?,
+                    9 => write!(f, "{:<3}", format!("{}", val).as_str().red())?,
+                    _ => write!(f, "{:<3}", val)?,
                 }
             }
             writeln!(f)?;
@@ -231,7 +257,7 @@ fn part1(input_file: &PathBuf) {
     let mut state = State::from_file(input_file);
     println!("{}", state);
 
-    state.update_all_trail_scores();
+    state.update_all_trail_scores_part1();
     println!("{}", state);
 
     println!(
@@ -244,5 +270,17 @@ fn part1(input_file: &PathBuf) {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part2");
+    let mut state = State::from_file(input_file);
+    println!("{}", state);
+
+    state.update_all_trail_scores_part2();
+    println!("{}", state);
+
+    println!(
+        "Trailhead Score: {}",
+        format!("{}", state.calculate_trailhead_scores())
+            .as_str()
+            .green()
+            .bold()
+    );
 }
