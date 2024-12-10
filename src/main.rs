@@ -1,5 +1,6 @@
 use clap::Parser;
 mod day1;
+mod day10;
 mod day2;
 mod day3;
 mod day4;
@@ -36,6 +37,7 @@ fn main() {
         7 => day7::main(args.part, args.input_file),
         8 => day8::main(args.part, args.input_file),
         9 => day9::main(args.part, args.input_file),
+        10 => day10::main(args.part, args.input_file),
         _ => panic!("Invalid Day :("),
     }
 }
