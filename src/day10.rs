@@ -171,7 +171,7 @@ impl State {
             .flat_map(|(y, row)| {
                 row.iter()
                     .enumerate()
-                    .filter(|(x, v)| **v == 9)
+                    .filter(|(_, v)| **v == 9)
                     .map(move |(x, _)| Point::new(x, y))
             })
             .collect();
