@@ -156,5 +156,62 @@ fn calculate_next_stones(stone: u64) -> Vec<u64> {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part2");
+    let input_file = File::open(input_file).expect(
+        format!(
+            "Could not open input file: {}",
+            input_file.to_string_lossy()
+        )
+        .as_str(),
+    );
+
+    let lines = BufReader::new(input_file).lines();
+    let mut stones: Vec<u64> = Vec::new();
+    for line in lines {
+        let line = line.expect("Could not read line");
+        stones = line
+            .split_ascii_whitespace()
+            .map(|v| v.parse::<u64>().unwrap())
+            .collect();
+        break;
+    }
+
+    let num_blinks = 75;
+
+    let mut cache: HashMap<u64, HashMap<u64, u64>> = HashMap::new();
+
+    println!("Initial: {:?}", stones);
+
+    let total_stones: u64 = stones
+        .iter()
+        .map(|s| get_number_of_stones_after_n_blinks(*s, &mut cache, num_blinks))
+        .sum();
+    println!(
+        "Number of stones: {}",
+        total_stones.to_string().as_str().green().bold(),
+    );
+}
+
+fn get_number_of_stones_after_n_blinks(
+    stone: u64,
+    cache: &mut HashMap<u64, HashMap<u64, u64>>,
+    n: usize,
+) -> u64 {
+    if n == 0 {
+        return 1;
+    }
+
+    if cache.contains_key(&stone) && cache.get(&stone).unwrap().contains_key(&(n as u64)) {
+        return *cache.get(&stone).unwrap().get(&(n as u64)).unwrap();
+    }
+
+    let next_state = calculate_next_stones(stone);
+    let total: u64 = next_state
+        .iter()
+        .map(|s| get_number_of_stones_after_n_blinks(*s, cache, n - 1))
+        .sum();
+    cache
+        .entry(stone)
+        .or_insert_with(HashMap::new)
+        .insert(n as u64, total);
+    return total;
 }
