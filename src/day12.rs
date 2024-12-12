@@ -3,11 +3,11 @@ use std::{
     fmt::Display,
     fs::File,
     io::{BufRead, BufReader},
-    ops::{Add, Index, IndexMut, Sub},
+    ops::{Add, Index, IndexMut},
     path::PathBuf,
 };
 
-use colored::{ColoredString, Colorize, CustomColor};
+use colored::{Colorize, CustomColor};
 
 pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
     let input = input_opt.unwrap_or(PathBuf::from("input/day12.txt"));
@@ -47,12 +47,32 @@ impl Coords {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct Boundary {
+    top: bool,
+    bottom: bool,
+    left: bool,
+    right: bool,
+}
+
+impl Boundary {
+    fn new(top: bool, bottom: bool, left: bool, right: bool) -> Self {
+        Self {
+            top,
+            bottom,
+            left,
+            right,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Garden {
     plot: Vec<Vec<char>>,
     id_map: Vec<Vec<i32>>,
     id_to_plant: HashMap<i32, char>,
     id_to_perimeter_area: HashMap<i32, (usize, usize)>,
+    id_to_num_sides: HashMap<i32, usize>,
 }
 
 impl<T> Index<Coords> for Vec<Vec<T>> {
@@ -133,6 +153,7 @@ impl Garden {
             id_map,
             id_to_plant: HashMap::new(),
             id_to_perimeter_area: HashMap::new(),
+            id_to_num_sides: HashMap::new(),
         };
     }
 
@@ -148,6 +169,9 @@ impl Garden {
         let plant = self.plot[unlabelled_coord];
         let mut perimeter: usize = 0;
         let mut area: usize = 0;
+
+        // coord -> boundary at (top, bottom, left, right)
+        let mut coords_to_boundary: HashMap<Coords, Boundary> = HashMap::new();
 
         self.id_to_plant.insert(id, plant);
 
@@ -167,6 +191,7 @@ impl Garden {
 
             let group_neighbors = self.get_group_neighbors(&coord);
             perimeter += 4 - group_neighbors.len();
+            coords_to_boundary.insert(coord, self.get_boundary_of_coord(&coord, &group_neighbors));
 
             active_coords.extend(
                 group_neighbors
@@ -177,31 +202,75 @@ impl Garden {
         }
 
         self.id_to_perimeter_area.insert(id, (perimeter, area));
+        self.id_to_num_sides
+            .insert(id, self.count_sides_of_group(&coords_to_boundary));
     }
 
-    fn get_group_neighbors(&self, coord: &Coords) -> Vec<Coords> {
-        let mut neighbors: Vec<Coords> = vec![];
-        let neighbor_direction = vec![(-1, 0), (0, -1), (1, 0), (0, 1)];
+    fn count_sides_of_group(&self, coords_to_boundary: &HashMap<Coords, Boundary>) -> usize {
+        let mut num_sides: usize = 0;
+        for (coord, boundary) in coords_to_boundary.iter() {
+            let left = coord + (-1, 0);
+            let left = if left.is_ok() && coords_to_boundary.contains_key(&left.unwrap()) {
+                coords_to_boundary[&left.unwrap()]
+            } else {
+                Boundary::new(false, false, true, false)
+            };
 
-        let plant = self.plot[coord];
+            let top = coord + (0, -1);
+            let top = if top.is_ok() && coords_to_boundary.contains_key(&top.unwrap()) {
+                coords_to_boundary[&top.unwrap()]
+            } else {
+                Boundary::new(true, false, false, false)
+            };
 
-        for dir in neighbor_direction {
-            let neighbor_coord = coord + dir;
-            if neighbor_coord.is_err() {
-                continue;
+            if boundary.top && !left.top {
+                num_sides += 1;
             }
 
-            let neighbor_coord = neighbor_coord.unwrap();
-            if neighbor_coord.x >= self.plot[0].len() || neighbor_coord.y >= self.plot.len() {
-                continue;
+            if boundary.bottom && !left.bottom {
+                num_sides += 1;
             }
 
-            if self.plot[neighbor_coord] == plant {
-                neighbors.push(neighbor_coord);
+            if boundary.left && !top.left {
+                num_sides += 1;
+            }
+
+            if boundary.right && !top.right {
+                num_sides += 1;
             }
         }
 
-        return neighbors;
+        return num_sides;
+    }
+
+    fn get_boundary_of_coord(&self, coord: &Coords, group_neighbor: &Vec<Coords>) -> Boundary {
+        let top = coord + (0, -1);
+        let top = top.is_err() || !group_neighbor.contains(&top.unwrap());
+
+        let bottom = coord + (0, 1);
+        let bottom = bottom.is_err() || !group_neighbor.contains(&bottom.unwrap());
+
+        let left = coord + (-1, 0);
+        let left = left.is_err() || !group_neighbor.contains(&left.unwrap());
+
+        let right = coord + (1, 0);
+        let right = right.is_err() || !group_neighbor.contains(&right.unwrap());
+
+        return Boundary::new(top, bottom, left, right);
+    }
+
+    fn get_group_neighbors(&self, coord: &Coords) -> Vec<Coords> {
+        let neighbor_direction = vec![(-1, 0), (0, -1), (1, 0), (0, 1)];
+
+        let plant = self.plot[coord];
+        return neighbor_direction
+            .iter()
+            .map(|dir| coord + *dir)
+            .filter(|coord| coord.is_ok())
+            .map(|c| c.unwrap())
+            .filter(|c| c.x < self.plot[0].len() && c.y < self.plot.len())
+            .filter(|c| self.plot[c] == plant)
+            .collect();
     }
 
     fn get_one_unlabelled_coord(&self) -> Option<Coords> {
@@ -225,6 +294,14 @@ impl Garden {
             .id_to_perimeter_area
             .iter()
             .map(|(_, (p, a))| p * a)
+            .sum();
+    }
+
+    fn total_num_sides_times_area(&self) -> usize {
+        return self
+            .id_to_num_sides
+            .iter()
+            .map(|(id, num_sides)| self.id_to_perimeter_area[id].1 * num_sides)
             .sum();
     }
 
@@ -278,7 +355,7 @@ impl Display for Garden {
         for row in self.id_map.iter() {
             for id in row.iter() {
                 let color = color_mapping[id];
-                write!(f, "{:<3}", (*id).to_string().as_str().custom_color(color))?;
+                write!(f, "{:<4}", (*id).to_string().as_str().custom_color(color))?;
             }
             writeln!(f)?;
         }
@@ -287,32 +364,45 @@ impl Display for Garden {
         writeln!(f, "ID Map:")?;
         writeln!(
             f,
-            "  {:<10} | {:<10} | {:<10} | {:<10} | {:<10}",
-            "ID", "PLANT", "PERIMETER", "AREA", "PRODUCT"
+            " |------------|------------|------------|------------|------------|------------|------------|"
         )?;
         writeln!(
             f,
-            " |-----------|------------|------------|------------|------------|"
+            " | {:<10} | {:<10} | {:<10} | {:<10} | {:<10} | {:<10} | {:<10} |",
+            "ID", "PLANT", "PERIMETER", "AREA", "PERIMxAREA", "NUM SIDES", "SIDESxAREA"
+        )?;
+        writeln!(
+            f,
+            " |------------|------------|------------|------------|------------|------------|------------|"
         )?;
 
-        for (id, plant) in self.id_to_plant.iter() {
+        for id in 0..self.id_to_plant.len() {
+            let id = &(id as i32);
+            let plant = self.id_to_plant[id];
             let (perimeter, area) = self.id_to_perimeter_area.get(id).unwrap();
+            let num_sides = self.id_to_num_sides.get(id).unwrap();
             let color = color_mapping[id];
             writeln!(
                 f,
                 "{}",
                 format!(
-                    "  {:<10} | {:<10} | {:<10} | {:<10} | {:<10}",
+                    " | {:<10} | {:<10} | {:<10} | {:<10} | {:<10} | {:<10} | {:<10} |",
                     id,
                     plant,
                     perimeter,
                     area,
-                    perimeter * area
+                    perimeter * area,
+                    num_sides,
+                    num_sides * area,
                 )
                 .as_str()
                 .custom_color(color)
             )?;
         }
+        writeln!(
+            f,
+            " |------------|------------|------------|------------|------------|------------|------------|"
+        )?;
 
         Ok(())
     }
@@ -336,5 +426,18 @@ fn part1(input_file: &PathBuf) {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part2");
+    let mut garden = Garden::from_file(input_file);
+    println!("{}", garden);
+
+    garden.label_plants();
+    println!("{}", garden);
+
+    println!(
+        "Total Price: {}",
+        garden
+            .total_num_sides_times_area()
+            .to_string()
+            .green()
+            .bold()
+    );
 }
