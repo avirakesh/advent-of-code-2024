@@ -75,7 +75,7 @@ struct Problem {
 }
 
 impl Problem {
-    fn from_lines(lines: &Vec<String>, prize_prefix: i128) -> Self {
+    fn from_lines(lines: &Vec<String>, prize_adjustment: i128) -> Self {
         let regexes = vec![
             Regex::new(r"Button A: X\+(\d+), Y\+(\d+)").unwrap(),
             Regex::new(r"Button B: X\+(\d+), Y\+(\d+)").unwrap(),
@@ -95,8 +95,8 @@ impl Problem {
 
         let prize = regexes[2].captures(&lines[2]).unwrap();
         let prize: (i128, i128) = (
-            prize_prefix + prize[1].parse::<i128>().unwrap(),
-            prize_prefix + prize[2].parse::<i128>().unwrap(),
+            prize_adjustment + prize[1].parse::<i128>().unwrap(),
+            prize_adjustment + prize[2].parse::<i128>().unwrap(),
         );
 
         return Self {
@@ -107,6 +107,17 @@ impl Problem {
     }
 
     fn solve(&self) -> Result<(i128, i128), ()> {
+        // Okay this function is a little random as written, but
+        // it basically encodes the mathematical solution to the Problem
+        //
+        // The equations for this problem are:
+        // (n_a * button_a.x) + (n_b * button_b.x) = prize.x
+        // (n_a * button_a.y) + (n_b * button_b.y) = prize.y
+        //
+        // Solving these two equations for n_a and n_b gives us the cryptic
+        // formulas we're using below.
+        // Note that n_a and n_b should be integers return early whenever they
+        // end up not being integers.
         let a = &self.button_a;
         let b = &self.button_b;
         let p = &self.prize;
@@ -121,8 +132,8 @@ impl Problem {
         let n_b = numerator / demoninator;
         // println!("n_b = {} / {} = {}", numerator, demoninator, n_b);
 
-        let demoninator = a.y;
         let numerator = p.y - (n_b * b.y);
+        let demoninator = a.y;
         if demoninator == 0 || numerator % demoninator != 0 {
             return Err(());
         }
@@ -130,6 +141,7 @@ impl Problem {
         let n_a = numerator / demoninator;
         // println!("n_a = {} / {} = {}", (p.y - (n_b * b.y)), a.y, n_a);
 
+        // This is technically not needed, but here just in case.
         let sanity_check = (self.button_a * n_a) + (self.button_b * n_b);
         if self.prize == sanity_check {
             // println!("Sanity check passed!");
