@@ -36,23 +36,19 @@ pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 struct Coord {
-    x: i32,
-    y: i32,
+    x: i128,
+    y: i128,
 }
 
 impl Coord {
-    fn new(x: i32, y: i32) -> Self {
-        Coord { x, y }
-    }
-
-    fn from_tuple(p: (i32, i32)) -> Self {
+    fn from_tuple(p: (i128, i128)) -> Self {
         Coord { x: p.0, y: p.1 }
     }
 }
 
-impl Mul<i32> for Coord {
+impl Mul<i128> for Coord {
     type Output = Self;
-    fn mul(self, rhs: i32) -> Self::Output {
+    fn mul(self, rhs: i128) -> Self::Output {
         Coord {
             x: self.x * rhs,
             y: self.y * rhs,
@@ -79,7 +75,7 @@ struct Problem {
 }
 
 impl Problem {
-    fn from_lines(lines: &Vec<String>) -> Self {
+    fn from_lines(lines: &Vec<String>, prize_prefix: i128) -> Self {
         let regexes = vec![
             Regex::new(r"Button A: X\+(\d+), Y\+(\d+)").unwrap(),
             Regex::new(r"Button B: X\+(\d+), Y\+(\d+)").unwrap(),
@@ -92,13 +88,16 @@ impl Problem {
         }
 
         let button_a = regexes[0].captures(&lines[0]).unwrap();
-        let button_a: (i32, i32) = (button_a[1].parse().unwrap(), button_a[2].parse().unwrap());
+        let button_a: (i128, i128) = (button_a[1].parse().unwrap(), button_a[2].parse().unwrap());
 
         let button_b = regexes[1].captures(&lines[1]).unwrap();
-        let button_b: (i32, i32) = (button_b[1].parse().unwrap(), button_b[2].parse().unwrap());
+        let button_b: (i128, i128) = (button_b[1].parse().unwrap(), button_b[2].parse().unwrap());
 
         let prize = regexes[2].captures(&lines[2]).unwrap();
-        let prize: (i32, i32) = (prize[1].parse().unwrap(), prize[2].parse().unwrap());
+        let prize: (i128, i128) = (
+            prize_prefix + prize[1].parse::<i128>().unwrap(),
+            prize_prefix + prize[2].parse::<i128>().unwrap(),
+        );
 
         return Self {
             button_a: Coord::from_tuple(button_a),
@@ -107,13 +106,13 @@ impl Problem {
         };
     }
 
-    fn solve(&self) -> Result<(i32, i32), ()> {
+    fn solve(&self) -> Result<(i128, i128), ()> {
         let a = &self.button_a;
         let b = &self.button_b;
         let p = &self.prize;
 
-        let demoninator = (b.x * a.y) - (a.x * b.y);
         let numerator = (p.x * a.y) - (a.x * p.y);
+        let demoninator = (b.x * a.y) - (a.x * b.y);
 
         if demoninator == 0 || numerator % demoninator != 0 {
             return Err(());
@@ -132,7 +131,7 @@ impl Problem {
         // println!("n_a = {} / {} = {}", (p.y - (n_b * b.y)), a.y, n_a);
 
         let sanity_check = (self.button_a * n_a) + (self.button_b * n_b);
-        if (self.prize == sanity_check) {
+        if self.prize == sanity_check {
             // println!("Sanity check passed!");
             return Ok((n_a, n_b));
         } else {
@@ -145,7 +144,7 @@ impl Problem {
     }
 }
 
-fn get_problems_from_file(input_file: &PathBuf) -> Vec<Problem> {
+fn get_problems_from_file(input_file: &PathBuf, prize_prefix: i128) -> Vec<Problem> {
     let input_file = File::open(input_file).expect(
         format!(
             "Could not open input file: {}",
@@ -167,7 +166,7 @@ fn get_problems_from_file(input_file: &PathBuf) -> Vec<Problem> {
     for line in lines {
         let line = line.expect("Could not read line");
         if problem_raw.len() == regexes.len() {
-            problems.push(Problem::from_lines(&problem_raw));
+            problems.push(Problem::from_lines(&problem_raw, prize_prefix));
             problem_raw.clear();
             continue;
         }
@@ -180,16 +179,17 @@ fn get_problems_from_file(input_file: &PathBuf) -> Vec<Problem> {
     }
 
     if problem_raw.len() == regexes.len() {
-        problems.push(Problem::from_lines(&problem_raw));
+        problems.push(Problem::from_lines(&problem_raw, prize_prefix));
     }
 
     return problems;
 }
 
 fn part1(input_file: &PathBuf) {
-    let problems = get_problems_from_file(input_file);
+    let problems = get_problems_from_file(input_file, 0);
+    println!("{:#?}", problems);
 
-    let solutions: Vec<(i32, i32)> = problems
+    let solutions: Vec<(i128, i128)> = problems
         .iter()
         .map(|p| p.solve())
         .filter(|s| s.is_ok())
@@ -200,7 +200,8 @@ fn part1(input_file: &PathBuf) {
     let tokens = solutions
         .iter()
         .map(|(n_a, n_b)| n_a * 3 + n_b)
-        .sum::<i32>();
+        .sum::<i128>();
+
     println!(
         "Tokens Spent: {}",
         tokens.to_string().as_str().green().bold()
@@ -208,5 +209,24 @@ fn part1(input_file: &PathBuf) {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part 2");
+    let problems = get_problems_from_file(input_file, 10000000000000);
+
+    let solutions: Vec<(i128, i128)> = problems
+        .iter()
+        .map(|p| p.solve())
+        .filter(|s| s.is_ok())
+        .map(|s| s.unwrap())
+        .collect();
+
+    println!("Solutions: {:?}", solutions);
+
+    let tokens = solutions
+        .iter()
+        .map(|(n_a, n_b)| n_a * 3 + n_b)
+        .sum::<i128>();
+
+    println!(
+        "Tokens Spent: {}",
+        tokens.to_string().as_str().green().bold()
+    );
 }
