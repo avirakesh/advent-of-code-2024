@@ -199,7 +199,6 @@ fn get_problems_from_file(input_file: &PathBuf, prize_prefix: i128) -> Vec<Probl
 
 fn part1(input_file: &PathBuf) {
     let problems = get_problems_from_file(input_file, 0);
-    println!("{:#?}", problems);
 
     let solutions: Vec<(i128, i128)> = problems
         .iter()
@@ -229,8 +228,6 @@ fn part2(input_file: &PathBuf) {
         .filter(|s| s.is_ok())
         .map(|s| s.unwrap())
         .collect();
-
-    println!("Solutions: {:?}", solutions);
 
     let tokens = solutions
         .iter()
