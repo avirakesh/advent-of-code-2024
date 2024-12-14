@@ -1,6 +1,7 @@
 use std::{
+    collections::HashMap,
     fs::File,
-    io::{BufRead, BufReader},
+    io::{stdin, BufRead, BufReader},
     ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Rem},
     path::PathBuf,
 };
@@ -213,6 +214,20 @@ fn count_robots_in_quadrants(robots: &Vec<Robot>, board_size: &(i32, i32)) -> (i
     return (top_left, top_right, bottom_left, bottom_right);
 }
 
+fn get_average_count_per_cell(robots: &Vec<Robot>) -> f64 {
+    let counts: HashMap<Coord, i32> =
+        robots
+            .iter()
+            .map(|r| r.position)
+            .fold(HashMap::new(), |mut acc, c| {
+                *acc.entry(c).or_insert(0) += 1;
+                acc
+            });
+    let num_robots = robots.len();
+    let num_positions = counts.len();
+    return num_robots as f64 / num_positions as f64;
+}
+
 fn pretty_print_robot_count(robots: &Vec<Robot>, board_size: &(i32, i32)) {
     let (width, height) = *board_size;
     let mut board = vec![vec![0; width as usize]; height as usize];
@@ -237,5 +252,35 @@ fn pretty_print_robot_count(robots: &Vec<Robot>, board_size: &(i32, i32)) {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part 2");
+    let mut robots = create_robots_from_file(input_file);
+    println!("# Robots: {:#?}", robots.len());
+    let board_size = (101, 103);
+
+    let mut user_input = String::new();
+    let mut num_seconds = 0;
+
+    println!("Board After {}s", num_seconds);
+    pretty_print_robot_count(&robots, &board_size);
+    println!();
+
+    let avg_threshold = 1.001;
+    loop {
+        let avg_robots = get_average_count_per_cell(&robots);
+        if avg_robots <= avg_threshold {
+            println!("Board After {}s", num_seconds);
+            pretty_print_robot_count(&robots, &board_size);
+            println!();
+            println!("Board has avergage robots count: {}", avg_robots);
+            println!("Press Enter to continue (or exit to exit): ");
+            stdin().read_line(&mut user_input).unwrap();
+            if user_input.to_lowercase() == "exit" {
+                break;
+            }
+        }
+
+        num_seconds += 1;
+        robots
+            .iter_mut()
+            .for_each(|r| r.move_for_n_secs(1, &board_size));
+    }
 }
