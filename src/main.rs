@@ -47,7 +47,7 @@ fn main() {
         12 => day12::main(args.part, args.input_file),
         13 => day13::main(args.part, args.input_file),
         14 => day14::main(args.part, args.input_file),
-        14 => day15::main(args.part, args.input_file),
+        15 => day15::main(args.part, args.input_file),
         _ => panic!("Invalid Day :("),
     }
 }
