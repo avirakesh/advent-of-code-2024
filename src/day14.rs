@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{stdin, BufRead, BufReader},
-    ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Rem},
+    ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign},
     path::PathBuf,
 };
 
@@ -44,10 +44,6 @@ struct Coord {
 impl Coord {
     fn new(x: i32, y: i32) -> Self {
         Coord { x, y }
-    }
-
-    fn from_pair(xy: (i32, i32)) -> Self {
-        Coord::new(xy.0, xy.1)
     }
 
     fn wrap_to_size(&self, size: &(i32, i32)) -> Coord {
@@ -241,7 +237,7 @@ fn pretty_print_robot_count(robots: &Vec<Robot>, board_size: &(i32, i32)) {
         for count in board_row.iter() {
             print!(
                 "{:<2}",
-                match (count) {
+                match count {
                     0 => ".".black(),
                     _ => format!("{}", count).as_str().green(),
                 }
