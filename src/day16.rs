@@ -1,6 +1,6 @@
 use std::{
     cmp::Reverse,
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     fmt::Display,
     fs::File,
     io::{BufRead, BufReader},
@@ -237,7 +237,6 @@ impl Maze {
             explored_reindeers.insert(curr_reindeer);
 
             if curr_reindeer.pos == self.end_pos {
-                println!("Found path! {:?}: {}", curr_reindeer, cost);
                 path_cost = Some(cost);
                 break;
             }
@@ -275,6 +274,59 @@ impl Maze {
 
         path.reverse();
         return (path, path_cost.unwrap());
+    }
+
+    fn find_all_possible_paths_of_least_cost(&self) -> HashMap<Reindeer, Vec<Reindeer>> {
+        let mut active_reindeers: PriorityQueue<Reindeer, Reverse<isize>> = PriorityQueue::new();
+        let mut explored_reindeers: HashSet<Reindeer> = HashSet::new();
+        // reindeer -> prev_reindeers for backtracking
+        let mut prev_reindeers: HashMap<Reindeer, Vec<Reindeer>> = HashMap::new();
+        let mut least_cost: Option<isize> = None;
+
+        active_reindeers.push(self.reindeer, Reverse(0 as isize));
+
+        while !active_reindeers.is_empty() {
+            let (curr_reindeer, cost) = active_reindeers.pop().unwrap();
+            let cost = cost.0;
+            if least_cost.is_some() && least_cost.unwrap() < cost {
+                // exit early if the cost is greater than the path of least cost
+                break;
+            }
+
+            if curr_reindeer.pos == self.end_pos {
+                println!("Found path of cost: {}", cost);
+                least_cost = Some(cost);
+            }
+
+            explored_reindeers.insert(curr_reindeer);
+
+            let next_reindeers = self.get_next_possible_reindeers(&curr_reindeer, cost);
+            for (next_reindeer, next_cost) in next_reindeers {
+                if explored_reindeers.contains(&next_reindeer)
+                    || explored_reindeers.contains(&next_reindeer.turn_around())
+                {
+                    continue;
+                }
+
+                let old_cost = active_reindeers.push_increase(next_reindeer, Reverse(next_cost));
+                if old_cost.is_none() || old_cost.unwrap().0 > next_cost {
+                    prev_reindeers.insert(next_reindeer, vec![curr_reindeer]);
+                } else if old_cost.unwrap().0 == next_cost {
+                    prev_reindeers
+                        .get_mut(&next_reindeer)
+                        .expect(
+                            format!(
+                                "{} is in active_reindeers but not in prev_reindeers?",
+                                next_reindeer
+                            )
+                            .as_str(),
+                        )
+                        .push(curr_reindeer);
+                }
+            }
+        }
+
+        return prev_reindeers;
     }
 
     fn get_next_possible_reindeers(
@@ -349,6 +401,57 @@ impl Maze {
             println!();
         }
     }
+
+    fn count_and_pretty_print_best_seats(
+        &self,
+        all_paths: &HashMap<Reindeer, Vec<Reindeer>>,
+    ) -> usize {
+        let mut active_reindeers: VecDeque<Reindeer> =
+            Reindeer::possible_reindeer_at_pos(&self.end_pos)
+                .into_iter()
+                .filter(|r| all_paths.contains_key(r))
+                .collect();
+
+        let mut explored_reindeers: HashSet<Reindeer> = HashSet::new();
+        explored_reindeers.extend(active_reindeers.iter());
+
+        while !active_reindeers.is_empty() {
+            let curr_reindeer = active_reindeers.pop_front().unwrap();
+
+            if !all_paths.contains_key(&curr_reindeer) {
+                continue;
+            }
+
+            for next_reindeer in all_paths[&curr_reindeer].iter() {
+                if explored_reindeers.contains(next_reindeer) {
+                    continue;
+                }
+
+                active_reindeers.push_back(*next_reindeer);
+                explored_reindeers.insert(*next_reindeer);
+            }
+        }
+
+        let seats_on_path: HashSet<Coord> = explored_reindeers.iter().map(|r| r.pos).collect();
+
+        for (y, row) in self.maze.iter().enumerate() {
+            for (x, cell) in row.iter().enumerate() {
+                let curr_coord = Coord::new(x as isize, y as isize);
+                if seats_on_path.contains(&curr_coord) {
+                    print!("{:<2}", "•".green().bold());
+                    continue;
+                }
+
+                match cell {
+                    Entity::Wall => print!("{:<2}", "#".red()),
+                    Entity::Empty => print!("{:<2}", ".".bright_black()),
+                };
+            }
+            println!();
+        }
+
+        return seats_on_path.len();
+    }
 }
 
 impl Display for Maze {
@@ -401,5 +504,13 @@ fn part1(input_file: &PathBuf) {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part 2");
+    let maze = Maze::from_file(input_file);
+    println!("{}", maze);
+
+    let all_paths = maze.find_all_possible_paths_of_least_cost();
+    let num_seats = maze.count_and_pretty_print_best_seats(&all_paths);
+    println!(
+        "Number of seats on path: {}",
+        num_seats.to_string().as_str().green().bold()
+    );
 }
