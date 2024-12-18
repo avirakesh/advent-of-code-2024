@@ -105,7 +105,7 @@ impl Memory {
         );
         let lines = BufReader::new(input_file).lines();
 
-        let mut corruption_map = vec![vec![false; board_size.1 as usize]; board_size.0 as usize];
+        let mut corruption_map = vec![vec![false; board_size.1]; board_size.0];
         let mut bytes_processed: usize = 0;
         let byted_to_process = bytes_to_take.unwrap_or(usize::MAX);
         for line in lines {
@@ -135,7 +135,21 @@ impl Memory {
         };
     }
 
-    fn get_shortest_path_to_exit(&self) -> Vec<Coord> {
+    fn from_raw_parts(board_size: (usize, usize), corrupted_coords: &[Coord]) -> Self {
+        let mut corruption_map = vec![vec![false; board_size.1]; board_size.0];
+        for coord in corrupted_coords {
+            corruption_map[*coord] = true;
+        }
+
+        return Self {
+            corruption_map,
+            start_pos: Coord::new(0, 0),
+            end_pos: Coord::new(board_size.0 as isize - 1, board_size.1 as isize - 1),
+            size: board_size,
+        };
+    }
+
+    fn get_shortest_path_to_exit(&self) -> Option<Vec<Coord>> {
         // Use a breadth-first search (BFS) to find the shortest path
         let mut prev_nodes: HashMap<Coord, Option<Coord>> = HashMap::new();
         let mut frontier: VecDeque<Coord> = VecDeque::new();
@@ -162,7 +176,7 @@ impl Memory {
         }
 
         if !prev_nodes.contains_key(&self.end_pos) {
-            panic!("Could not find path to exit.");
+            return None;
         }
 
         let mut path: Vec<Coord> = Vec::new();
@@ -173,7 +187,7 @@ impl Memory {
         }
 
         path.reverse();
-        return path;
+        return Some(path);
     }
 
     fn get_uncorrupted_neighbors(&self, current_coord: Coord) -> Vec<Coord> {
@@ -250,11 +264,100 @@ fn part1(input_file: &PathBuf) {
     memory.pretty_print(None);
 
     let path = memory.get_shortest_path_to_exit();
+    if path.is_none() {
+        panic!("Could not find a path to exit. :(");
+    }
+
+    let path = path.unwrap();
     memory.pretty_print(Some(&path));
 
-    println!("Shortest Path Length: {} steps", path.len() - 1);
+    println!(
+        "Shortest Path Length: {} steps",
+        (path.len() - 1).to_string().green().bold()
+    );
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part2");
+    let corruption_list = coord_list_from_file(input_file);
+    // let board_size = (7 as usize, 7 as usize);
+    let board_size = (71 as usize, 71 as usize);
+
+    let mut left_limit = 0;
+    let mut right_limit = corruption_list.len() - 1;
+
+    while left_limit < right_limit {
+        let mid_point = (left_limit + right_limit) / 2;
+        // println!(
+        //     "left_limit: {}; mid_point: {}; right_limit: {}",
+        //     left_limit, mid_point, right_limit
+        // );
+        let curr_coords = &corruption_list[0..=mid_point];
+        let memory = Memory::from_raw_parts(board_size, curr_coords);
+        let path = memory.get_shortest_path_to_exit();
+        match path {
+            Some(_) => {
+                left_limit = mid_point + 1;
+            }
+            None => {
+                right_limit = mid_point;
+            }
+        }
+    }
+
+    let last_working_solution = left_limit - 1;
+    let coord_list = &corruption_list[0..=last_working_solution];
+
+    let memory = Memory::from_raw_parts(board_size, coord_list);
+
+    let shortest_path = memory.get_shortest_path_to_exit();
+    if shortest_path.is_none() {
+        panic!("Could not find path in any configuration? WTF?");
+    }
+    println!("Last feasible path:");
+    memory.pretty_print(Some(&shortest_path.unwrap()));
+
+    let first_blocked_solution = left_limit;
+    let coord_list = &corruption_list[0..=first_blocked_solution];
+
+    let memory = Memory::from_raw_parts(board_size, coord_list);
+
+    let shortest_path = memory.get_shortest_path_to_exit();
+    if shortest_path.is_some() {
+        panic!("Found a path through an impossible memory? WTF?");
+    }
+    println!("First infeasible memory:");
+    memory.pretty_print(None);
+
+    let first_blocked_coord = corruption_list[first_blocked_solution];
+    println!(
+        "First infeasible memory: {}",
+        format!("{},{}", first_blocked_coord.x, first_blocked_coord.y)
+            .as_str()
+            .green()
+            .bold()
+    );
+}
+
+fn coord_list_from_file(input_file: &PathBuf) -> Vec<Coord> {
+    let input_file = File::open(input_file).expect(
+        format!(
+            "Could not open input file: {}",
+            input_file.to_string_lossy()
+        )
+        .as_str(),
+    );
+    let lines = BufReader::new(input_file).lines();
+
+    let mut ret: Vec<Coord> = Vec::new();
+    for line in lines {
+        let line = line.expect("Could not read line.");
+
+        let parts = line.split(",").collect::<Vec<&str>>();
+        let x = parts[0].parse::<isize>().unwrap();
+        let y = parts[1].parse::<isize>().unwrap();
+
+        ret.push(Coord::new(x, y));
+    }
+
+    return ret;
 }
