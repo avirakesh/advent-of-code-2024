@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fs::File,
     io::{BufRead, BufReader},
     path::PathBuf,
@@ -34,7 +35,7 @@ pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Computer {
     reg_a: i64,
     reg_b: i64,
@@ -149,76 +150,96 @@ impl Computer {
     }
 
     fn adv(&mut self, operand: u8) -> Option<u8> {
-        let operand = self.resolve_combo_operand(operand);
-        // println!("adv({} -> {})", operand, operand);
-        if operand < 0 {
-            panic!("Attempting to raise to negative power: {}", operand);
+        let resolved_operand = self.resolve_combo_operand(operand);
+        // print!("adv({} -> {})", operand, resolved_operand);
+        if resolved_operand < 0 {
+            panic!(
+                "Attempting to raise to negative power: {}",
+                resolved_operand
+            );
         }
 
         let numerator = self.reg_a;
-        let denominator = i64::pow(2, operand as u32);
-        self.reg_a = numerator / denominator;
+        self.reg_a = numerator >> resolved_operand;
+        // println!(" reg_a <- {}", self.reg_a);
         return None;
     }
 
     fn bxl(&mut self, operand: u8) -> Option<u8> {
         let operand = operand as i64;
-        // println!("bxl({})", operand);
+        // print!("bxl({})", operand);
         self.reg_b = self.reg_b ^ operand;
+        // println!(" reg_b <- {}", self.reg_b);
         return None;
     }
 
     fn bst(&mut self, operand: u8) -> Option<u8> {
-        let operand = self.resolve_combo_operand(operand);
-        // println!("bst({} -> {})", operand, operand);
-        self.reg_b = operand & 0b0111;
+        let resolved_operand = self.resolve_combo_operand(operand);
+        // print!("bst({} -> {})", operand, resolved_operand);
+        self.reg_b = resolved_operand & 0b0111;
+        // println!(" reg_b <- {}", self.reg_b);
         return None;
     }
 
     fn jnz(&mut self, operand: u8) -> Option<u8> {
-        // println!("jnz({})", operand);
+        // print!("jnz({})", operand);
         if self.reg_a == 0 {
+            // println!();
             return None;
         }
         self.instr_ptr = operand as usize;
+        // println!(" instr_ptr <- {}", self.instr_ptr);
         return None;
     }
 
-    fn bxc(&mut self, operand: u8) -> Option<u8> {
-        // println!("bxc()");
+    fn bxc(&mut self, _: u8) -> Option<u8> {
+        // print!("bxc()");
         self.reg_b = self.reg_b ^ self.reg_c;
+        // println!(" reg_b <- {}", self.reg_b);
         return None;
     }
 
     fn out(&mut self, operand: u8) -> Option<u8> {
-        let operand = self.resolve_combo_operand(operand);
-        // println!("out({} -> {})", operand, operand);
-        return Some((operand & 0b0111) as u8);
+        let resolved_operand = self.resolve_combo_operand(operand);
+        // println!(
+        //     "out({} -> {}) -> {}",
+        //     operand,
+        //     resolved_operand,
+        //     resolved_operand & 0b0111
+        // );
+
+        return Some((resolved_operand & 0b0111) as u8);
     }
 
     fn bdv(&mut self, operand: u8) -> Option<u8> {
-        let operand = self.resolve_combo_operand(operand);
-        // println!("bdv({} -> {})", operand, operand);
-        if operand < 0 {
-            panic!("Attempting to raise to negative power: {}", operand);
+        let resolved_operand = self.resolve_combo_operand(operand);
+        // println!("bdv({} -> {})", operand, resolved_operand);
+        if resolved_operand < 0 {
+            panic!(
+                "Attempting to raise to negative power: {}",
+                resolved_operand
+            );
         }
 
         let numerator = self.reg_a;
-        let denominator = i64::pow(2, operand as u32);
-        self.reg_b = numerator / denominator;
+        self.reg_b = numerator >> resolved_operand;
+        // println!(" reg_b <- {}", self.reg_b);
         return None;
     }
 
     fn cdv(&mut self, operand: u8) -> Option<u8> {
-        let operand = self.resolve_combo_operand(operand);
-        // println!("cdv({} -> {})", operand, operand);
-        if operand < 0 {
-            panic!("Attempting to raise to negative power: {}", operand);
+        let resolved_operand = self.resolve_combo_operand(operand);
+        // print!("cdv({} -> {})", operand, resolved_operand);
+        if resolved_operand < 0 {
+            panic!(
+                "Attempting to raise to negative power: {}",
+                resolved_operand
+            );
         }
 
         let numerator = self.reg_a;
-        let denominator = i64::pow(2, operand as u32);
-        self.reg_c = numerator / denominator;
+        self.reg_c = numerator >> resolved_operand;
+        // println!(" reg_c <- {}", self.reg_c);
         return None;
     }
 
@@ -235,6 +256,7 @@ impl Computer {
 
 fn part1(input_file: &PathBuf) {
     let mut computer = Computer::from_file(input_file);
+    println!("Program: {:?}", computer.program);
 
     let mut outputs: Vec<u8> = Vec::new();
     loop {
@@ -254,5 +276,62 @@ fn part1(input_file: &PathBuf) {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part 2");
+    let computer = Computer::from_file(input_file);
+
+    let target_output: Vec<u8> = vec![2, 4, 1, 5, 7, 5, 1, 6, 4, 3, 5, 5, 0, 3, 3, 0];
+
+    let mut active_inputs: HashSet<i64> = HashSet::new();
+    active_inputs.insert(0);
+    let mut found_len = 0;
+
+    for l in 0..target_output.len() {
+        let curr_target = &target_output[(target_output.len() - l - 1)..target_output.len()];
+        let mut next_inputs: HashSet<i64> = HashSet::new();
+
+        println!();
+        println!("curr_target: {:?}", curr_target);
+
+        for active_input in active_inputs.iter() {
+            for i in 0..8i64 {
+                let mut working_computer = computer.clone();
+                let inp = active_input | i;
+
+                working_computer.reg_a = inp;
+                let out = collect_output(&mut working_computer);
+                // println!("{:?}; {l}", out);
+                if out.len() > l && &out[0..=l] == curr_target {
+                    println!("{inp:b} is a working configuration (l = {l}). Output: {out:?}");
+                    next_inputs.insert(inp << 3);
+                    found_len = l + 1;
+                }
+            }
+        }
+        println!("Working Inputs: {:#?}", next_inputs);
+        active_inputs = next_inputs;
+    }
+
+    assert_eq!(found_len, target_output.len());
+
+    let min_solution = active_inputs.iter().map(|i| i >> 3).min().unwrap();
+    println!();
+    println!(
+        "Required reg_a value: {} ({:#b})",
+        min_solution.to_string().green().bold(),
+        min_solution
+    );
+}
+
+fn collect_output(computer: &mut Computer) -> Vec<u8> {
+    let mut outputs: Vec<u8> = Vec::new();
+    loop {
+        // println!("{:?}", computer);
+        let (exited, out) = computer.process_one_instruction();
+        if out.is_some() {
+            outputs.push(out.unwrap());
+        }
+        if exited {
+            break;
+        }
+    }
+    return outputs;
 }
