@@ -1,10 +1,12 @@
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufRead, BufReader},
     path::PathBuf,
 };
 
 use colored::Colorize;
+use priority_queue::PriorityQueue;
 
 pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
     let input = input_opt.unwrap_or(PathBuf::from("input/day19.txt"));
@@ -105,5 +107,62 @@ fn can_make_pattern(towels: &[String], pattern: &String) -> bool {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part2")
+    let (towels, patterns) = read_towel_and_pattern_from_file(input_file);
+    println!("Towels: {:?}", towels);
+    // println!("Patterns: {:#?}", patterns);
+
+    let mut total_number_of_ways_to_make_pattern = 0;
+    for pattern in patterns {
+        // println!("Current pattern to make: {:?}", pattern);
+        let num_ways = count_number_of_ways_to_make_pattern(&towels, &pattern);
+        total_number_of_ways_to_make_pattern += num_ways;
+
+        println!(
+            "{:>15} : {}",
+            if num_ways == 0 {
+                num_ways.to_string().red()
+            } else {
+                num_ways.to_string().green()
+            },
+            pattern
+        );
+    }
+
+    println!();
+    println!(
+        "Total number of ways to make a pattern: {}",
+        total_number_of_ways_to_make_pattern
+            .to_string()
+            .green()
+            .bold()
+    )
+}
+
+fn count_number_of_ways_to_make_pattern(towels: &[String], pattern: &String) -> usize {
+    let mut frontier: PriorityQueue<&str, usize> = PriorityQueue::new();
+    frontier.push(pattern.as_str(), pattern.chars().count());
+
+    let mut counts_map: HashMap<&str, usize> = HashMap::new();
+    counts_map.insert(pattern.as_str(), 1);
+
+    while !frontier.is_empty() {
+        let (curr_pattern, _) = frontier.pop().unwrap();
+        let curr_count = counts_map[curr_pattern];
+        // println!("Current Pattern: {:?}", curr_pattern);
+        // println!("Current Count: {}", curr_count);
+        if curr_pattern.is_empty() {
+            return curr_count;
+        }
+
+        towels
+            .iter()
+            .filter(|t| curr_pattern.starts_with(*t))
+            .map(|t| curr_pattern.strip_prefix(t).unwrap())
+            .for_each(|new_pattern| {
+                frontier.push_increase(new_pattern, new_pattern.chars().count());
+                *counts_map.entry(new_pattern).or_insert(0) += curr_count;
+            });
+    }
+
+    return 0;
 }
