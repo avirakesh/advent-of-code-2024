@@ -53,6 +53,10 @@ impl Coord {
             && self.x < matrix[0].len() as isize
             && self.y < matrix.len() as isize;
     }
+
+    fn manhattan_distance(&self, other: &Coord) -> usize {
+        return (self.x - other.x).abs() as usize + (self.y - other.y).abs() as usize;
+    }
 }
 
 impl<T> Index<Coord> for Vec<Vec<T>> {
@@ -277,6 +281,28 @@ impl State {
         return savings_count;
     }
 
+    fn get_cheat_counts_2(&self, path: &[Coord], cheat_step: usize) -> HashMap<usize, usize> {
+        let mut savings_count: HashMap<usize, usize> = HashMap::new();
+
+        for i in 0..path.len() - cheat_step - 1 {
+            for j in i + cheat_step..path.len() {
+                let coord1 = path[i];
+                let coord2 = path[j];
+                let distance = coord1.manhattan_distance(&coord2);
+                if distance > cheat_step {
+                    continue;
+                }
+                let time_saving = j - i - distance;
+                if time_saving <= 0 {
+                    continue;
+                }
+                *savings_count.entry(time_saving).or_insert(0) += 1;
+            }
+        }
+
+        return savings_count;
+    }
+
     fn pretty_print(&self) {
         for (y, row) in self.race_track.iter().enumerate() {
             for (x, entity) in row.iter().enumerate() {
@@ -313,9 +339,9 @@ fn part1(input_file: &PathBuf) {
     println!("Path length: {}", path.len());
 
     let savings_count = state.get_cheat_counts(&path, 2);
-    let mut savings: Vec<(usize, usize)> = savings_count.iter().map(|(k, v)| (*k, *v)).collect();
-    savings.sort_by(|(a, _), (b, _)| a.cmp(b));
 
+    // let mut savings: Vec<(usize, usize)> = savings_count.iter().map(|(k, v)| (*k, *v)).collect();
+    // savings.sort_by(|(a, _), (b, _)| a.cmp(b));
     // println!();
     // println!("Possible Savings: ");
     // savings.iter().for_each(|(k, v)| {
@@ -339,5 +365,38 @@ fn part1(input_file: &PathBuf) {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement part 2");
+    let state = State::from_file(input_file);
+    state.pretty_print();
+
+    let path = state.get_path();
+    println!("Path length: {}", path.len());
+
+    let cheat_step = 20;
+    let savings_count = state.get_cheat_counts_2(&path, cheat_step);
+    let optimal_saving_threshold: usize = 100;
+
+    // let mut savings: Vec<(usize, usize)> = savings_count
+    //     .iter()
+    //     .filter(|(k, _)| **k >= optimal_saving_threshold)
+    //     .map(|(k, v)| (*k, *v))
+    //     .collect();
+    // savings.sort_by(|(a, _), (b, _)| a.cmp(b));
+    // println!();
+    // println!("Possible Savings: ");
+    // savings.iter().for_each(|(k, v)| {
+    //     println!("    {:>3} -> {}", k, v);
+    // });
+
+    let optimal_savings_count: usize = savings_count
+        .iter()
+        .filter(|(t, _)| **t >= optimal_saving_threshold)
+        .map(|(_, count)| count)
+        .sum();
+
+    println!();
+    println!(
+        "Number of savings >= {}ps : {}",
+        optimal_saving_threshold.to_string().yellow(),
+        optimal_savings_count.to_string().green().bold()
+    );
 }
