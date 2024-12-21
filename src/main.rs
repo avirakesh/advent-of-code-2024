@@ -12,6 +12,7 @@ mod day18;
 mod day19;
 mod day2;
 mod day20;
+mod day21;
 mod day3;
 mod day4;
 mod day5;
@@ -58,6 +59,7 @@ fn main() {
         18 => day18::main(args.part, args.input_file),
         19 => day19::main(args.part, args.input_file),
         20 => day20::main(args.part, args.input_file),
+        21 => day21::main(args.part, args.input_file),
         _ => panic!("Invalid Day :("),
     }
 }
