@@ -6,6 +6,7 @@ use std::{
 };
 
 use colored::Colorize;
+use itertools::Itertools;
 
 pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
     let input = input_opt.unwrap_or(PathBuf::from("input/day23.txt"));
@@ -103,5 +104,72 @@ fn get_triangles_with_t(connections: &HashMap<String, HashSet<String>>) -> Vec<[
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part2");
+    let connections = get_connections_from_file(input_file);
+    println!("{:#?}", connections);
+
+    let fully_connected_sets = get_fully_connected_sets_with_t(&connections);
+    fully_connected_sets
+        .iter()
+        .for_each(|v| println!("{:?}", v));
+
+    let largest_connected_set = fully_connected_sets
+        .iter()
+        .max_by(|a, b| a.len().cmp(&b.len()))
+        .unwrap();
+
+    let password = largest_connected_set.iter().join(",");
+
+    println!();
+    println!(
+        "Largest Connected Set: {}",
+        format!("{:?}", largest_connected_set)
+            .as_str()
+            .cyan()
+            .bold()
+    );
+    println!("Password: {}", password.green().bold());
+}
+
+fn get_fully_connected_sets_with_t(
+    connections: &HashMap<String, HashSet<String>>,
+) -> HashSet<Vec<String>> {
+    let mut fully_connected_sets: HashSet<Vec<String>> = HashSet::new();
+
+    for key in connections.keys().filter(|k| k.starts_with("t")) {
+        let mut visited: HashSet<Vec<String>> = HashSet::new();
+        let mut stack: Vec<(Vec<String>, HashSet<String>)> = Vec::new();
+        stack.push((vec![key.clone()], connections.get(key).unwrap().clone()));
+
+        while !stack.is_empty() {
+            let (mut current_set, working_neighbors) = stack.pop().unwrap();
+
+            if visited.contains(&current_set) {
+                continue;
+            }
+
+            visited.insert(current_set.clone());
+
+            if working_neighbors.is_empty() {
+                current_set.sort();
+                fully_connected_sets.insert(current_set);
+                continue;
+            }
+
+            for neighbor in working_neighbors.iter() {
+                // println!("{:?} -> {}", working_neighbors, neighbor);
+                let next_level_neighbors = connections.get(neighbor).unwrap();
+                let common_neigbors: HashSet<String> = working_neighbors
+                    .intersection(next_level_neighbors)
+                    .map(|s| s.clone())
+                    .collect();
+
+                let mut next_set = current_set.clone();
+                next_set.push(neighbor.clone());
+                next_set.sort();
+                stack.push((next_set, common_neigbors));
+            }
+        }
+    }
+
+    return fully_connected_sets;
 }
