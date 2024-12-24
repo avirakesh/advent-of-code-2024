@@ -3,11 +3,9 @@ use std::{
     fs::File,
     io::{BufRead, BufReader},
     path::PathBuf,
-    result,
 };
 
 use colored::Colorize;
-use rand::seq;
 
 pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
     let input = input_opt.unwrap_or(PathBuf::from("input/day22.txt"));

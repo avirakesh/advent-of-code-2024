@@ -484,6 +484,6 @@ fn get_shortest_d_pad_directions(code: &[DirectionPadKey], level: usize) -> Vec<
     return curr_best_min;
 }
 
-fn part2(input_file: &PathBuf) {
+fn part2(_input_file: &PathBuf) {
     todo!("Implement Part2")
 }
