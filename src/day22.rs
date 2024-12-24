@@ -1,4 +1,5 @@
 use std::{
+    collections::{HashMap, HashSet, VecDeque},
     fs::File,
     io::{BufRead, BufReader},
     path::PathBuf,
@@ -6,6 +7,7 @@ use std::{
 };
 
 use colored::Colorize;
+use rand::seq;
 
 pub fn main(part_opt: Option<u32>, input_opt: Option<PathBuf>) {
     let input = input_opt.unwrap_or(PathBuf::from("input/day22.txt"));
@@ -108,5 +110,71 @@ fn part1(input_file: &PathBuf) {
 }
 
 fn part2(input_file: &PathBuf) {
-    todo!("Implement Part2");
+    let first_secrets = get_initial_numbers_from_file(input_file);
+
+    // Brute force FTW!
+    let seq_maps: Vec<HashMap<(i64, i64, i64, i64), u64>> = first_secrets
+        .iter()
+        .map(|s| get_seq_price_map(*s))
+        .collect();
+
+    let seq_set: HashSet<(i64, i64, i64, i64)> =
+        seq_maps.iter().flat_map(|m| m.keys()).map(|k| *k).collect();
+
+    println!("Number of unique sequences: {}", seq_set.len());
+
+    let max_sum = seq_set
+        .iter()
+        .map(|s| {
+            (
+                s,
+                seq_maps
+                    .iter()
+                    .map(|m| m.get(s).unwrap_or(&0))
+                    .map(|v| *v)
+                    .sum::<u64>(),
+            )
+        })
+        .max_by(|a, b| a.1.cmp(&b.1))
+        .map(|(seq, sum)| (*seq, sum))
+        .unwrap();
+
+    println!(
+        "Best Sequence : {}",
+        format!("{:?}", max_sum.0).as_str().cyan().bold()
+    );
+    println!("Best Sum      : {}", max_sum.1.to_string().green().bold());
+}
+
+fn get_seq_price_map(secret: u64) -> HashMap<(i64, i64, i64, i64), u64> {
+    let mut seq_to_price: HashMap<(i64, i64, i64, i64), u64> = HashMap::new();
+
+    let mut past_diffs: VecDeque<i64> = VecDeque::with_capacity(5);
+    let mut working_secret = secret;
+    let mut working_price = secret % 10;
+
+    for _ in 0..2000 {
+        let next_secret = next_secret(working_secret);
+        let next_price = next_secret % 10;
+        let diff = next_price as i64 - working_price as i64;
+        past_diffs.push_back(diff);
+        if past_diffs.len() > 4 {
+            past_diffs.pop_front().unwrap();
+        }
+
+        if past_diffs.len() == 4 {
+            seq_to_price
+                .entry(vec_to_tuple(&past_diffs))
+                .or_insert(next_price);
+        }
+
+        working_price = next_price;
+        working_secret = next_secret;
+    }
+
+    return seq_to_price;
+}
+
+fn vec_to_tuple(v: &VecDeque<i64>) -> (i64, i64, i64, i64) {
+    return (v[0], v[1], v[2], v[3]);
 }
